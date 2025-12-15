@@ -1,0 +1,156 @@
+---
+title: "Plots"
+format: html
+editor: visual
+---
+```{r}
+library(sf)
+library(leaflet)
+library(tidyverse)
+library(ggplot2)
+library(ggspatial)
+library(scatterpie)
+library(plotly)
+```
+## targets
+
+one map plot for sampling points
+
+one plot for species distribution in polygons x=species, y= numbers, color=polygons 
+
+one plot for species cycle distribution in polygons x=cycle, y= numbers, color=polygons 
+
+one map plot for species distribution in polygons, 
+
+one map plot for species cycle distribution in polygons, 
+
+one map plot for species cycle distribution in lakes, function()
+
+one map plot for species distribution in lakes 
+
+one bar plot of species in different polys function()
+## Loading data
+
+```{r}
+gpkg <- "kodiak_analysis_layers.gpkg"
+kodiak               <- st_read(gpkg, "kodiak")
+kodiak_crop          <- st_read(gpkg, "kodiak_crop")
+points_spatial_kodiak<- st_read(gpkg, "awc_points_kodiak")
+fish_stat            <- st_read(gpkg, "fish_stat")
+lakes_touch_kodiak   <- st_read(gpkg, "lakes_touch_kodiak")
+streams_touch_kodiak <- st_read(gpkg, "streams_touch_kodiak")
+kDK_list <- paste0("KDK-", sprintf("%02d", 1:15))
+fish_list<-unique(fish_stat$SPECIES)
+fish_cycle<-unique(fish_stat$CYCLE)
+```
+##  one map plot for sampling points
+```{r}
+smaple_plot_map<-function(point_data=points_spatial_kodiak,poly_data=kodiak){
+  pts_coords <- st_coordinates(point_data)
+pts_df <- data.frame(lon = pts_coords[,1],
+                     lat = pts_coords[,2],
+                     lbl  = paste0("Lng: ", round(pts_coords[,1],2),
+                                   "\tLat: ", round(pts_coords[,2],2)))
+sample_plot<-leaflet() %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons(data = poly_data, color = "red", weight = 1, fill = FALSE) %>%
+  addCircleMarkers(data = pts_df, lng = ~lon, lat = ~lat,
+                   radius = 1, color = "blue",
+                   label = ~lbl,)
+}
+sample_plot
+```
+
+## the plots for species and cycle distribution in polygons x=cycle, y= numbers, color=polygons 
+```{r}
+plot_bar_polygons <- function(fish_sf=fish_stat, id_col = "Index_ID", group_col = "SPECIES") {
+  
+  stat_df <- fish_sf %>%
+    st_drop_geometry() %>%
+    count(.data[[id_col]], .data[[group_col]], name = "n")
+  
+  gg <- ggplot(stat_df, aes(x = .data[[group_col]], y = n)) +
+    geom_col(aes(fill = .data[[group_col]])) +
+    facet_wrap(as.formula(paste("~", id_col)), nrow = 5, ncol = 3) +
+    theme_minimal() +
+    labs(x = group_col, y = "Count", title = paste("Distribution of", group_col)) +
+    scale_y_log10()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  return(ggplotly(gg))
+}
+p_species <- plot_bar_polygons(fish_stat, group_col = "SPECIES")
+p_cycle   <- plot_bar_polygons(fish_stat, group_col = "CYCLE")
+p_species
+p_cycle
+```
+
+
+## the map plots for species and cycle distribution in polygons,
+```{r}
+plot_pie_by_polygon <- function(fish_sf=fish_stat,kodiak_crop=kodiak_crop,poly_sf  = kodiak,id_col= "Index_ID" ,group_col= "SPECIES",r = 0.10) {
+  stat_df <- fish_sf %>%
+    st_drop_geometry() %>%
+    count(.data[[id_col]], .data[[group_col]])
+
+  centers <- st_point_on_surface(poly_sf)
+  coords <- st_coordinates(centers)
+
+  centers_df <- poly_sf %>%
+    st_drop_geometry() %>%
+    mutate(
+      cx = coords[, 1],
+      cy = coords[, 2]
+    ) %>%
+    select(all_of(id_col), cx, cy)
+
+  pie_df <- stat_df %>%
+    pivot_wider(
+      names_from  = .data[[group_col]],
+      values_from = n,
+      values_fill = 0
+    ) %>%
+    left_join(centers_df, by = id_col)
+
+  pie_cols <- setdiff(names(pie_df), c(id_col, "cx", "cy"))
+
+  ggplot() +
+    geom_sf(data = kodiak_crop, fill = "lightblue", color = "blue", size = 0.1) +
+    geom_sf(data = poly_sf, fill = NA, color = "red", alpha=0.3,size = 0.1) +
+    geom_scatterpie(
+      data = pie_df,
+      aes(x = cx, y = cy, r = r),
+      cols = pie_cols,
+      alpha=0.4
+    ) +
+    coord_sf() +
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+    labs(fill = group_col)
+}
+p_species <- plot_pie_by_polygon(fish_sf=fish_stat,kodiak_crop=kodiak_crop,poly_sf  = kodiak,id_col= "Index_ID" ,group_col= "SPECIES",r = 0.10)
+p_cycle <- plot_pie_by_polygon(fish_sf= fish_stat ,kodiak_crop=kodiak_crop, poly_sf = kodiak,id_col   = "Index_ID",group_col = "CYCLE",r = 0.10)
+p_species
+p_cycle
+```
+##one map plot for species cycle distribution in lakes, function()
+```{r}
+fit_travel <- function(data = fish_stat, fish = "Chum Salmon") {
+  data_filtered <- data[data$SPECIES == fish, , drop = FALSE]
+  p <- ggplot() +
+    geom_sf(data = kodiak_crop, fill = "lightblue", color = "blue", size = 0.2) +
+    geom_sf(data = kodiak, color = "red", alpha = 0.1, size = 0.5) +
+    geom_sf(data = lakes_touch_kodiak, color = "blue", size = 1) +
+    geom_sf(data = streams_touch_kodiak, color = "blue", size = 1) +
+    geom_sf(data = data_filtered,aes(color = CYCLE,text = paste0("Species: ", SPECIES, "<br>Cycle: ", CYCLE)),
+      alpha = 0.9, size = 0.5) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = -45, hjust = 1, vjust = 1)) +
+    coord_sf()
+  ggplotly(p, tooltip = "text")
+}
+fit_travel(fish = "Chum Salmon")
+```
+
+
+
