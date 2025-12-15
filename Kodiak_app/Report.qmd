@@ -1,0 +1,203 @@
+---
+title: "An Exploratory Spatial Analysis of Fish Species and Life-Cycle Stages on Kodiak Island, Alaska"
+format: html
+editor: "Shuxin Qian"
+---
+```{r}
+library(sf)
+library(leaflet)
+library(tidyverse)
+library(ggplot2)
+library(ggspatial)
+library(scatterpie)
+library(plotly)
+```
+## Introduction
+Kodiak Island, Alaska, is known for its rich fisheries, sustaining numerous species of fish, particularly Pacific Salmon. For effective protection and sustainable fisheries management, It is essential to conduct precise analysis of the spatial residence and migratory patterns of these fish. This project focuses on analyzing the distribution of various fish species and their specific life cycle stages in Kodiak.
+
+
+Our analysis utilizes a dataset of 2,078 spatial sampling points. These records describe the fish species such as Coho, Sockeye, Chum, Pink, and King Salmon, Dolly Varden and Sheefish, categorizing crucial life stages like parr, resident, and smolt. Although precise fish counts are unavailable, the spatial density of these sampling observations serves as a valuable estimate for counts and habitat use. 
+
+The main goals of this investigation are to explore the spatial manifestation of fish movement across life cycle stages and improve fisheries management strategies through mapping of species distribution. By geospatial analysis with ecological records, this study seeks to offer findings for the long-term management of Kodiak's aquatic resources.
+
+## Data Source
+
+Fish data are sourced from the Alaska Department of Fish and Game: https://www.adfg.alaska.gov/sf/SARR/AWC/index.cfm?ADFG=maps.dataFiles
+
+Koidak Map GEO data: geodata package
+
+## Data Cleaning and Preparation
+
+The original dataset obtained from the Alaska Department of Fish and Game contains spatial records covering the entire state of Alaska. To focus the analysis on Kodiak Island, the data were spatially filtered to retain only observations within boundaries of Kodiak Island.
+
+The filtered dataset includes lake and stream features, as well as spatial sampling points that record index id, fish species, life-cycle stage, and location information. In the original point data, multiple fish species and life-cycle stage info could be recorded within a single observation. To facilitate analysis, these records were separated so that each row represents a single sampling point, a single fish species, and a single life-cycle stage.
+
+Following this restructure, the sampling point data were grouped by fish species and life-cycle stage to create a summarized dataset, referred to as **`fish_stat`**.
+
+The cleaned spatial layers were stored in a GeoPackage file, **`kodiak_analysis_layers.gpkg`**, which could be used in the analysis.
+
+## Loading data
+```{r}
+gpkg <- "kodiak_analysis_layers.gpkg"
+kodiak               <- st_read(gpkg, "kodiak")
+kodiak_crop          <- st_read(gpkg, "kodiak_crop")
+points_spatial_kodiak<- st_read(gpkg, "awc_points_kodiak")
+fish_stat            <- st_read(gpkg, "fish_stat")
+lakes_touch_kodiak   <- st_read(gpkg, "lakes_touch_kodiak")
+streams_touch_kodiak <- st_read(gpkg, "streams_touch_kodiak")
+kDK_list <- paste0("KDK-", sprintf("%02d", 1:15))
+fish_list<-unique(fish_stat$SPECIES)
+fish_cycle<-unique(fish_stat$CYCLE)
+```
+## Explorative Data Analysis
+
+```{r}
+smaple_plot_map<-function(point_data=points_spatial_kodiak,poly_data=kodiak){
+  pts_coords <- st_coordinates(point_data)
+pts_df <- data.frame(lon = pts_coords[,1],
+                     lat = pts_coords[,2],
+                     lbl  = paste0("Lng: ", round(pts_coords[,1],2),
+                                   "\tLat: ", round(pts_coords[,2],2)))
+sample_plot<-leaflet() %>%
+  addProviderTiles(providers$OpenStreetMap) %>%
+  addPolygons(data = poly_data, color = "red", weight = 1, fill = FALSE) %>%
+  addCircleMarkers(data = pts_df, lng = ~lon, lat = ~lat,
+                   radius = 1, color = "blue",
+                   label = ~lbl,)
+}
+sample_plot
+```
+This figure presents the spatial distribution of fish sampling points across Kodiak Island. Sampling locations are distributed along river and stream networks, as well as in lake systems, reflecting the importance of freshwater habitats for multiple fish species. The interactive map allows users to inspect individual sampling locations and their geographic coordinates.
+
+```{r}
+plot_bar_polygons <- function(fish_sf=fish_stat, id_col = "Index_ID", group_col = "SPECIES") {
+  
+  stat_df <- fish_sf %>%
+    st_drop_geometry() %>%
+    count(.data[[id_col]], .data[[group_col]], name = "n")
+  
+  gg <- ggplot(stat_df, aes(x = .data[[group_col]], y = n)) +
+    geom_col(aes(fill = .data[[group_col]])) +
+    facet_wrap(as.formula(paste("~", id_col)), nrow = 5, ncol = 3) +
+    theme_minimal() +
+    labs(x = group_col, y = "Count", title = paste("Distribution of", group_col)) +
+    scale_y_log10()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  return(ggplotly(gg))
+}
+p_species <- plot_bar_polygons(fish_stat, group_col = "SPECIES")
+p_cycle   <- plot_bar_polygons(fish_stat, group_col = "CYCLE")
+p_species
+p_cycle
+```
+These figures show bar charts summarizing the number of sampling observations by fish species and life-cycle stage within each polygon. Counts are displayed on a logarithmic scale to accommodate differences in sampling intensity across regions.
+
+These plots highlight variation in species composition and life-cycle representation among polygons, suggesting spatial heterogeneity in habitat use across Kodiak Island.
+
+
+```{r}
+plot_pie_by_polygon <- function(fish_sf=fish_stat,kodiak_crop=kodiak_crop,poly_sf  = kodiak,id_col= "Index_ID" ,group_col= "SPECIES",r = 0.10) {
+  stat_df <- fish_sf %>%
+    st_drop_geometry() %>%
+    count(.data[[id_col]], .data[[group_col]])
+
+  centers <- st_point_on_surface(poly_sf)
+  coords <- st_coordinates(centers)
+
+  centers_df <- poly_sf %>%
+    st_drop_geometry() %>%
+    mutate(
+      cx = coords[, 1],
+      cy = coords[, 2]
+    ) %>%
+    select(all_of(id_col), cx, cy)
+
+  pie_df <- stat_df %>%
+    pivot_wider(
+      names_from  = .data[[group_col]],
+      values_from = n,
+      values_fill = 0
+    ) %>%
+    left_join(centers_df, by = id_col)
+
+  pie_cols <- setdiff(names(pie_df), c(id_col, "cx", "cy"))
+
+  ggplot() +
+    geom_sf(data = kodiak_crop, fill = "lightblue", color = "blue", size = 0.1) +
+    geom_sf(data = poly_sf, fill = NA, color = "red", alpha=0.3,size = 0.1) +
+    geom_scatterpie(
+      data = pie_df,
+      aes(x = cx, y = cy, r = r),
+      cols = pie_cols,
+      alpha=0.4
+    ) +
+    coord_sf() +
+    theme_minimal()+
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))+
+    labs(fill = group_col)
+}
+p_species <- plot_pie_by_polygon(fish_sf=fish_stat,kodiak_crop=kodiak_crop,poly_sf  = kodiak,id_col= "Index_ID" ,group_col= "SPECIES",r = 0.10)
+p_cycle <- plot_pie_by_polygon(fish_sf= fish_stat ,kodiak_crop=kodiak_crop, poly_sf = kodiak,id_col   = "Index_ID",group_col = "CYCLE",r = 0.10)
+p_species
+p_cycle
+```
+These figures present spatial pie charts summarizing the relative composition of fish species and life-cycle stages within each polygon. Each pie chart represents the proportional distribution of observations at the polygon level, providing a visual summary of spatial patterns.
+
+These maps emphasize differences in species dominance and life-cycle composition across regions, offering insight into how habitat use varies spatially.
+
+
+```{r}
+fit_travel <- function(data = fish_stat, fish = "Chum Salmon") {
+  data_filtered <- data[data$SPECIES == fish, , drop = FALSE]
+  p <- ggplot() +
+    geom_sf(data = kodiak_crop, fill = "lightblue", color = "blue", size = 0.2) +
+    geom_sf(data = kodiak, color = "red", alpha = 0.1, size = 0.5) +
+    geom_sf(data = lakes_touch_kodiak, color = "blue", size = 1) +
+    geom_sf(data = streams_touch_kodiak, color = "blue", size = 1) +
+    geom_sf(data = data_filtered,aes(color = CYCLE,text = paste0("Species: ", SPECIES, "<br>Cycle: ", CYCLE)),
+      alpha = 0.9, size = 0.5) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = -45, hjust = 1, vjust = 1)) +
+    coord_sf()
+  ggplotly(p, tooltip = "text")
+}
+fit_travel(fish = "Chum Salmon")
+```
+This map displays the spatial distribution of life-cycle stages for a selected fish species across lakes and stream networks. This interactive map allows users to explore how different life-cycle stages are associated with specific freshwater features.
+
+## Shiny Wdbsite Application
+
+###Page 1: Introduction & Data Overview
+
+Shows a brief introduction and data sources.
+
+Displays an interactive map of all sampling points.
+
+###Page 2: Species and Cycle Distribution
+
+Users can switch between species and life-cycle stages using buttons.
+
+The app updates a polygon-level map and a bar chart based on the selection.
+
+###Page 3: Species-selected Cycle Distribution
+
+Users select a specific fish species. The app shows a map of cycle status distribution across lakes and streams.
+
+###Page 4: Data Table
+
+Displays the fish_stat dataset.
+
+Users can search, filter, and sort the table to explore specific species or cycle stages.
+
+This Shiny app shows the static report by allowing interactive exploration of spatial patterns and ecological data.
+
+##Conclusion
+
+This project analyzed the spatial distribution of fish species and their life-cycle stages in Kodiak Island using map analysis and interactive visualization.
+
+The results show that sampling points are concentrated along rivers, streams, and lakes, reflecting important freshwater habitats for multiple species. Besides, in different regions, the types of fish and their life cycles are distributed differently.
+
+Interactive visualizations in the Shiny application allow users to explore species- and cycle-specific patterns dynamically. The analysis provides useful insight into fish distribution of Kodiak island.
+
+Overall, this study demonstrates how R, Quarto, and Shiny can be used together to produce professional reports and interactive tools for data analysis.
