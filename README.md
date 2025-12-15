@@ -1,6 +1,7 @@
 # An Exploratory Spatial Analysis of Fish Species and Life-Cycle Stages on Kodiak Island, Alaska
 ## Package missed
 Some R packages in this app depend on system libraries that are not installed on the server. Therefore, the shiny app cannot work on the posit connect platform.
+<img width="1911" height="927" alt="image" src="https://github.com/user-attachments/assets/5b52d903-8bd7-410f-9880-8caf61f68b00" />
 
 
 
