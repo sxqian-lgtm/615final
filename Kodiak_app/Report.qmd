@@ -1,5 +1,5 @@
 ---
-title: "An Exploratory Spatial Analysis of Fish Species and Life-Cycle Stages on Kodiak Island, Alaska"
+title: "An Exploratory Spatial Analysis of Fish Species and Life-Cycle Status on Kodiak Island, Alaska"
 format: html
 editor: **Shuxin Qian**
 ---
