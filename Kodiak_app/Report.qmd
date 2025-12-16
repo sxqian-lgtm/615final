@@ -14,11 +14,11 @@ library(plotly)
 ```
 ##Abstract
 
-Kodiak Island, Alaska, supports diverse fish populations, whose spatial distribution and life-cycle stages are critical for effective fisheries management. This project investigates the spatial patterns of fish species and their life-cycle stages across Kodiak Island using data from the Alaska Department of Fish and Game. A total of 2,078 spatial sampling points were analyzed, representing species such as Coho, Sockeye, Chum, Pink, and King Salmon, as well as Dolly Varden and Sheefish, with life stages including parr, resident, and smolt.
+Kodiak Island, Alaska, supports diverse fish populations, whose spatial distribution and life-cycle stages are important for fisheries management. This project investigates the spatial patterns of fish species and their life-cycle status across Kodiak Island using data from the Alaska Department of Fish and Game. A total of 2,078 spatial sampling points were analyzed, representing species such as Coho, Sockeye, Chum, Pink, and King Salmon, as well as Dolly Varden and Sheefish, with life status including parr, resident, and smolt.
 
-The data were cleaned, spatially filtered to Kodiak Island, and reshaped into a tidy format, forming the summarized dataset fish_stat. Geospatial analyses included interactive maps of sampling points, polygon-level species and cycle distribution, and species-specific life-cycle distribution across lakes and streams. Bar charts and pie charts were used to summarize counts and composition, while a Shiny web application was developed to enable dynamic exploration of species- and life-cycle-specific patterns.
+The data were cleaned, spatially filtered to Kodiak Island, and reshaped into a tidy format, forming the summarized dataset fish_stat. Geospatial analyses included interactive maps of sampling points, species and cycle distribution, and species-specific life-cycle distribution across lakes and streams. Bar charts and pie charts were used to summarize counts and composition, while a Shiny web application was developed to enable exploration of species- and life-cycle-specific patterns.
 
-Results indicate that fish observations are concentrated along rivers, streams, and lakes, with notable variation in species composition and life-cycle stage distribution across polygons. This project shows how R, Quarto, and Shiny can be integrated to produce professional reports and interactive tools for ecological data analysis, providing insights for habitat use and fisheries management.
+Results indicate that fish observations are concentrated along streams, and lakes, with notable variation in species composition and life-cycle status distribution across polygons. This project shows how R, Quarto, and Shiny can be integrated to produce professional reports and interactive tools for ecological data analysis, providing insights for fisheries management.
 
 
 ## Introduction
@@ -27,7 +27,7 @@ Kodiak Island, Alaska, is known for its rich fisheries, sustaining numerous spec
 
 Our analysis utilizes a dataset of 2,078 spatial sampling points. These records describe the fish species such as Coho, Sockeye, Chum, Pink, and King Salmon, Dolly Varden and Sheefish, categorizing crucial life stages like parr, resident, and smolt. Although precise fish counts are unavailable, the spatial density of these sampling observations serves as a valuable estimate for counts and habitat use. 
 
-The main goals of this investigation are to explore the spatial manifestation of fish movement across life cycle stages and improve fisheries management strategies through mapping of species distribution. By geospatial analysis with ecological records, this study seeks to offer findings for the long-term management of Kodiak's aquatic resources.
+The main goals of this investigation are to explore the spatial manifestation of fish movement across life cycle status and improve fisheries management strategies through mapping of species distribution. By geospatial analysis with ecological records, this study seeks to offer findings for the long-term management of Kodiak's aquatic resources.
 
 ## Data Source
 
@@ -39,9 +39,7 @@ Koidak Map GEO data: geodata package
 
 The original dataset obtained from the Alaska Department of Fish and Game contains spatial records covering the entire state of Alaska. To focus the analysis on Kodiak Island, the data were spatially filtered to retain only observations within boundaries of Kodiak Island.
 
-The filtered dataset includes lake and stream features, as well as spatial sampling points that record index id, fish species, life-cycle stage, and location information. In the original point data, multiple fish species and life-cycle stage info could be recorded within a single observation. To facilitate analysis, these records were separated so that each row represents a single sampling point, a single fish species, and a single life-cycle stage.
-
-Following this restructure, the sampling point data were grouped by fish species and life-cycle stage to create a summarized dataset, referred to as **`fish_stat`**.
+The filtered dataset includes lake and stream features, as well as spatial sampling points that record index id, fish species, life-cycle stage, and location information. In the original point data, multiple fish species and life-cycle status information could be recorded within a single observation. To facilitate analysis, these records were separated so that each row represents a single sampling point, a single fish species, and a single life-cycle status.
 
 The cleaned spatial layers were stored in a GeoPackage file, **`kodiak_analysis_layers.gpkg`**, which could be used in the analysis.
 
@@ -88,7 +86,7 @@ smaple_plot_map<-function(point_data=points_spatial_kodiak,poly_data=kodiak){
 sample_plot<-smaple_plot_map()
 sample_plot
 ```
-This figure presents the spatial distribution of fish sampling points across Kodiak Island. Sampling locations are distributed along river and stream networks, as well as in lake systems, reflecting the importance of freshwater habitats for multiple fish species. The interactive map allows users to inspect individual sampling locations and their geographic coordinates.
+This figure presents the spatial distribution of fish sampling points across Kodiak Island. Sampling locations are distributed along river and stream networks, as well as in lake systems, reflecting the importance of freshwater habitats for multiple fish species. The interactive map allows users to inspect individual sampling locations.
 
 ###Page 2: Species and Cycle Distribution
 
@@ -177,8 +175,7 @@ p_cycle
 ```
 These figures show bar charts summarizing the number of sampling observations by fish species and life-cycle stage within each polygon. Counts are displayed on a logarithmic scale to accommodate differences in sampling intensity across regions.
 
-These plots highlight variation in species composition and life-cycle representation among polygons, suggesting spatial heterogeneity in habitat use across Kodiak Island.
-
+These plots show variation in species composition and life-cycle representation among polygons, suggesting spatial heterogeneity across Kodiak Island.
 
 ###Page 3: Species-selected Cycle Distribution
 
@@ -203,8 +200,7 @@ fit_travel <- function(data = fish_stat, fish = "Chum Salmon") {
 }
 fit_travel(fish = "Chum Salmon")
 ```
-This map displays the spatial distribution of life-cycle stages for a selected fish species across lakes and stream networks. This interactive map allows users to explore how different life-cycle stages are associated with specific freshwater features.
-
+This map displays the spatial distribution of life-cycle stages for a selected fish species across lakes and stream networks. This interactive map allows users to explore where different life-cycle status exist.
 ###Page 4: Data Table
 ```{r}
 #| echo: false
@@ -219,12 +215,13 @@ search_data<-fish_stat%>%
 search_data
 ```
 Displays the fish_stat dataset. Users can search, filter, and sort the table to explore specific species or cycle stages.
+
 ##Conclusion
 
 This project analyzed the spatial distribution of fish species and their life-cycle stages in Kodiak Island using map analysis and interactive visualization.
 
 The results show that sampling points are concentrated along rivers, streams, and lakes, reflecting important freshwater habitats for multiple species. Besides, in different regions, the types of fish and their life cycles are distributed differently.
 
-Interactive visualizations in the Shiny application allow users to explore species- and cycle-specific patterns dynamically. The analysis provides useful insight into fish distribution of Kodiak island.
+Interactive visualizations in the Shiny application allow users to explore species- and cycle-specific patterns. The analysis provides useful insight into fish distribution of Kodiak island.
 
 Overall, this study demonstrates how R, Quarto, and Shiny can be used together to produce professional reports and interactive tools for data analysis.
